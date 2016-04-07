@@ -1,0 +1,323 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>CS 422 Project 2: Multiclass classification and Linear models</title>
+<style type="text/css">
+<!--
+.style1 {
+font-style: italic;
+font-weight: bold;
+}
+-->
+</style>
+<link href="project.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+<h2>CS 422 Project 2: Multiclass classification and Linear models</h2>
+
+<h3>Table of Contents</h3>
+<ul>
+<li><a href="#intro">Introduction</a></li>
+<li><a href="#stats">Judging Classifier Goodness <i>[20%]</i></a></li>
+<li><a href="#reductions">Reductions for Multiclass Classification <i>[40%]</i></a></li>
+<li><a href="#linear">Gradient Descent and Linear Classification <i>[40%]</i></a>
+<li><a href="#coll">Extra Credit: Collective Classification <i>[EC: 20%]</i></a></li>
+</ul>
+
+<h3><a name="intro">Introduction</a></h3>
+
+This project has two main components.  The first part is about using
+reductions to solve complex classifiation problems (multiclass
+classification).  The second is, in a sense, a continuation of P1 to
+build linear classifiers under various loss functions using
+(sub)gradient descent.  You may/should download all the P2
+files <a href="p2.tar.gz">here</a>.<p/>
+
+
+<table border="0" cellpadding="10">
+  <tr><td colspan="2"><b>Files you'll edit:</b></td></tr>
+
+  <tr><td><code>gd.py</code></td>
+  <td>Where you will put your gradient descent implementation.</td></tr>
+  
+  <tr><td><code>linear.py</code></td>
+  <td>This is where your generic "regularized linear classifier"
+  implementation will go.</td></tr>
+
+  <tr><td><code>multiclass.py</code></td>
+  <td>This is where your generic "regularized linear classifier"
+  implementation will go.</td></tr>
+
+
+  <tr><td colspan="2"><b>Files you might want to look at:</b></td></tr>
+
+  <tr><td><code>binary.py</code></td>
+  <td>Our generic interface for binary classifiers (actually works for
+  regression and other types of classification, too).</td></tr>
+
+  <tr><td><code>datasets.py</code></td>
+  <td>Where a handful of test data sets are stored.</td></tr>
+
+  <tr><td><code>mlGraphics.py</code></td>
+  <td>A few useful plotting commands</td></tr>
+
+  <tr><td><code>runClassifier.py</code></td>
+  <td>A few wrappers for doing useful things with classifiers, like
+  training them, generating learning curves, etc.</td></tr>
+
+  <tr><td><code>util.py</code></td>
+  <td>A handful of useful utility functions: these will undoubtedly
+  be helpful to you, so take a look!</td></tr>
+
+  <tr><td><code>data/*</code></td>
+  <td>All the datasets that we'll use.</td></tr>
+</table><p/>
+
+
+<p><strong>What to submit:</strong> You
+  will <a href="http://www.cs.utah.edu/~hal/handin.pl?course=cmsc422">handin</a>
+  all of the python files listed above under "Files you'll edit" as
+  well as a <tt>partners.txt</tt> file that lists the <b>names</b>
+  and <b>uids</b> (first four digits) of all members in your team.
+  Finally, you'll hand in a <tt>writeup.pdf</tt> file that answers all
+  the written questions in this assignment (denoted by <b>WU#:</b> in
+  this <tt>.html</tt> file).<p/>
+
+<p><strong>Evaluation:</strong> Your code will be autograded for
+technical correctness. Please <em>do not</em> change the names of any
+provided functions or classes within the code, or you will wreak havoc
+on the autograder. However, the correctness of your implementation --
+not the autograder's output -- will be the final judge of your score.
+If necessary, we will review and grade assignments individually to
+ensure that you receive due credit for your work.
+
+<p><strong>Academic Dishonesty:</strong> We will be checking your code
+against other submissions in the class for logical redundancy. If you
+copy someone else's code and submit it with minor changes, we will
+know. These cheat detectors are quite hard to fool, so please don't
+try. We trust you all to submit your own work only; <em>please</em>
+don't let us down. If you do, we will pursue the strongest
+consequences available to us.
+
+<p><strong>Getting Help:</strong> You are not alone!  If you find
+yourself stuck on something, contact the course staff for help.
+Office hours, class time, and the mailing list are there for your
+support; please use them.  If you can't make our office hours, let us
+know and we will schedule more.  We want these projects to be
+rewarding and instructional, not frustrating and demoralizing.  But,
+we don't know when or how to help unless you ask.  One more piece of
+advice: if you don't know what a variable is, print it out.
+
+
+<h3><a name="stats">Judging Classifier Goodness <i>[20%]</i></a></h3>
+
+This is all about LAB4. <b>WU1 (10%):</b> hand in your answers to C, D
+and E from LAB4. Please include plots for the questions that ask about
+plots.<p/>
+
+<b>WU2 (10%):</b> On the sentiment data, use FastDT to train a
+decision tree of all possible depths from 1 to 20. Use the development
+data to choose an optimal depth, call it d*. What development error do
+you get for d*? Which other depths are <i>not statistically
+significantly worse</i> than d*? Use the ttest with a 95% significance
+level to answer this question. Please write a couple sentences
+describing what you did to evaluate this, as well as what your answer
+is.
+
+<h3><a name="reductions">Reductions for Multiclass Classification <i>[40%]</i></a></h3>
+
+In this section, you will explore the differences between three
+multiclass-to-binary reductions: one-versus-all (OVA), all-versus-all
+(AVA) and a tree-based reduction (TREE).  This is largely based on
+LAB5, and the evaluation will be on the wine data (note that there's
+actually a famous dataset called "wine"... the one we're using has
+nothing to do with that!).<p/>
+
+First, you must implement AVA and the tree based reduction (the
+multiclass.py file that comes with this project is identical to the
+one from the lab, except the existence of the extra class for
+trees). See the lab for test cases of this. Second, you must implement
+a tree-based reduction. Most of train is given to you, but predict you
+must do all on your own. I've provided a tree class to help you:
+
+<pre>
+>>> t = makeBalancedTree(range(6))
+>>> t
+[[0 [1 2]] [3 [4 5]]]
+>>> t.isLeaf
+False
+>>> t.getLeft()
+[0 [1 2]]
+>>> t.getLeft().getLeft()
+0
+>>> t.getLeft().getLeft().isLeaf
+True
+</pre>
+
+<b>WU3 (10%):</b> From LAB5, Answer A, B, C, D.<p/>
+
+<b>WU4 (10%):</b> Using decision trees of constant depth for each
+classifier (but you choose it as well as you can!), train AVA, OVA and
+Tree (using balanced trees) for the wine data. Which does best?<p/>
+
+<b>WEC (5%):</b> Build a better tree (any way you want) other than the
+balanced binary tree. Fill in your code for this
+in <tt>getMyTreeForWine</tt>, which defaults to a balanced tree.</p>
+
+
+<h3><a name="linear">Gradient Descent and Linear Classification <i>[40%]</i></a></h3>
+
+To get started with linear models, we will implement a generic
+gradient descent methods.  This should go in <tt>gd.py</tt>, which
+contains a single (short) function: <tt>gd</tt> This takes five
+parameters: the function we're optimizing, it's gradient, an initial
+position, a number of iterations to run, and an initial step size.<p/>
+
+In each iteration of gradient descent, we will compute the gradient
+and take a step in that direction, with step size <tt>eta</tt>.  We
+will have an <i>adaptive</i> step size, where <tt>eta</tt> is computed
+as <tt>stepSize</tt> divided by the square root of the iteration
+number (counting from one).<p/>
+
+Once you have an implementation running, we can check it on a simple
+example of minimizing the function <tt>x^2</tt>:<p/>
+
+<pre>
+>>> gd.gd(lambda x: x**2, lambda x: 2*x, 10, 10, 0.2)
+(1.0034641051795872, array([ 100.        ,   36.        ,   18.5153247 ,   10.95094653,
+          7.00860578,    4.72540613,    3.30810578,    2.38344246,
+          1.75697198,    1.31968118,    1.00694021]))
+</pre>
+
+You can see that the "solution" found is about 1, which is not great
+(it should be zero!), but it's better than the initial value of ten!
+If yours is going up rather than going down, you probably have a sign
+error somewhere!<p/>
+
+We can let it run longer and plot the trajectory:
+
+<pre>
+>>> x, trajectory = gd.gd(lambda x: x**2, lambda x: 2*x, 10, 100, 0.2)
+>>> x
+0.003645900464603937
+>>> plot(trajectory)
+</pre>
+
+It's now found a value close to zero and you can see that the
+objective is decreasing by looking at the plot.<p/>
+
+<b>WU5 (5%):</b> Find a few values of step size where it converges and
+a few values where it diverges.  Where does the threshold seem to
+be?<p/>
+
+<b>WU6 (5%):</b> Come up with a <i>non-convex</i> univariate
+optimization problem.  Plot the function you're trying to minimize and
+show two runs of <tt>gd</tt>, one where it gets caught in a local
+minimum and one where it manages to make it to a global minimum.  (Use
+different starting points to accomplish this.)<p/>
+
+If you implemented it well, this should work in multiple dimensions,
+too:
+
+<pre>
+>>> x, trajectory = gd.gd(lambda x: linalg.norm(x)**2, lambda x: 2*x, array([10,5]), 100, 0.2)
+>>> x
+array([ 0.0036459 ,  0.00182295])
+>>> plot(trajectory)
+</pre>
+
+Our generic linear classifier implementation is
+in <tt>linear.py</tt>.  The way this works is as follows.  We have an
+interface <tt>LossFunction</tt> that we want to minimize.  This must
+be able to compute the loss for a pair <tt>Y</tt> and <tt>Yhat</tt>
+where, the former is the truth and the latter are the predictions.  It
+must also be able to compute a gradient when additionally given the
+data <tt>X</tt>.  This should be all you need for these.<p/>
+
+There are three loss function stubs: <tt>SquaredLoss</tt> (which is
+implemented for you!), <tt>LogisticLoss</tt> and <tt>HingeLoss</tt>
+(both of which you'll have to implement.  My suggestion is to hold off
+implementing the other two until you have the linear classifier
+working<p/>.
+
+The <tt>LinearClassifier</tt> class is a stub implemention of a
+generic linear classifier with an l2 regularizer.  It
+is <i>unbiased</i> so all you have to take care of are the weights.
+Your implementation should go in <tt>train</tt>, which has a handful
+of stubs.  The idea is to just pass appropriate functions
+to <tt>gd</tt> and have it do all the work.  See the comments inline
+in the code for more information.<p/>
+
+Once you've implemented the function evaluation and gradient, we can
+test this.  We'll begin with a very simple 2D example data set so that
+we can plot the solutions.  We'll also start with <i>no
+regularizer</i> to help you figure out where errors might be if you
+have them.  (You'll have to import <tt>mlGraphics</tt> to make this
+work.)
+
+<pre>
+>>> h = linear.LinearClassifier({'lossFunction': linear.SquaredLoss(), 'lambda': 0, 'numIter': 100, 'stepSize': 0.5})
+>>> runClassifier.trainTestSet(h, datasets.TwoDAxisAligned)
+Training accuracy 0.91, test accuracy 0.86
+>>> h
+w=array([ 2.73466371, -0.29563932])
+>>> mlGraphics.plotLinearClassifier(h, datasets.TwoDAxisAligned.X, datasets.TwoDAxisAligned.Y)
+</pre>
+
+Note that even though this data is clearly linearly separable,
+the <i>unbiased</i> classifier is unable to perfectly separate it.<p/>
+
+If we change the regularizer, we'll get a slightly different
+solution:
+
+<pre>
+>>> h = linear.LinearClassifier({'lossFunction': linear.SquaredLoss(), 'lambda': 10, 'numIter': 100, 'stepSize': 0.5})
+>>> runClassifier.trainTestSet(h, datasets.TwoDAxisAligned)
+Training accuracy 0.9, test accuracy 0.86
+>>> h
+w=array([ 1.30221546, -0.06764756])
+</pre>
+
+As expected, the weights are <i>smaller</i>.<p/>
+
+Now, we can try different loss functions.  Implement logistic loss and
+hinge loss.  Here are some simple test cases:
+
+<pre>
+>>> h = linear.LinearClassifier({'lossFunction': linear.SquaredLoss(), 'lambda': 10, 'numIter': 100, 'stepSize': 0.5})
+>>> runClassifier.trainTestSet(h, datasets.TwoDDiagonal)
+Training accuracy 0.98, test accuracy 0.86
+>>> h
+w=array([ 0.33864367,  1.28110942])
+
+>>> h =  linear.LinearClassifier({'lossFunction': linear.HingeLoss(), 'lambda': 1, 'numIter': 100, 'stepSize': 0.5})
+>>> runClassifier.trainTestSet(h, datasets.TwoDDiagonal)
+Training accuracy 0.98, test accuracy 0.86
+>>> h
+w=array([ 1.17110065,  4.67288657])
+</pre>
+
+<b>WU7 (5%):</b> Why does the hinge classifier produce much larger
+weights than squared loss, even though they all get the same
+classification performance?<p/>
+
+<b>WU8 (5%):</b> For each of the loss functions, train a model on the
+binary version of the wine data (called WineDataBinary) and evaluate
+it on the test data. You should use lambda=1 in all cases. Which works
+best? For that best model, look at the learned weights. Find
+the <i>words</i> corresponding to the weights with the greatest
+positive value and those with the greatest negative value (this is
+like LAB3). Hint: look at WineDataBinary.words to get the id-to-word
+mapping. List the top 5 positive and top 5 negative and explain.<p/>
+
+<h3><a name="coll">Extra Credit: Collective Classification <i>[EC: 20%]</i></a></h3>
+
+TBA soon!
+
+</body>
+</html>
+

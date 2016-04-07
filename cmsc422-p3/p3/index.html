@@ -1,0 +1,367 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>CMSC 422 Project 3: Unsupervised Learning</title>
+<style type="text/css">
+<!--
+.style1 {
+font-style: italic;
+font-weight: bold;
+}
+-->
+</style>
+<link href="project.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+<h2>CMSC 422 Project 3: Unsupervised Learning</h2>
+
+<h3>Table of Contents</h3>
+<ul>
+<li><a href="#intro">Introduction</a></li>
+<li><a href="#pca">PCA and Kernel PCA<i>[30%]</i></a>
+<li><a href="#kmeans">K-Means Clustering <i>[20%]</i></a>
+<li><a href="#classif">Classification with SVMs <i>[50%]</i></a>
+</ul>
+
+<h3><a name="intro">Introduction</a></h3>
+
+In this project, we will explore two algorithms for dimensionality
+reduction (PCA and kernel PCA) and clustering.  You can download all
+the files
+<a href="p3.tar.gz">here</a>.<p/>
+
+<table border="0" cellpadding="10">
+  <tr><td colspan="2"><b>Files you'll edit:</b></td></tr>
+
+  <tr><td><code>dr.py</code></td>
+  <td>You will implement PCA and kernel PCA here.</td></tr>
+
+  <tr><td><code>kernel.py</code></td>
+  <td>Some basic kernels.</td></tr>
+
+  <tr><td colspan="2"><b>Files you might want to look at:</b></td></tr>
+
+  <tr><td><code>clustering.py</code></td>
+  <td>baseline K-means is provided.</td></tr>
+
+  <tr><td><code>datasets.py</code></td>
+  <td>Includes (in python format) some simple toy data sets.</td></tr>
+
+  <tr><td><code>digits</code></td>
+  <td>Digits data.</td></tr>
+
+  <tr><td><code>util.py</code></td>
+  <td>Some helpful utilities, including plotting functions.</td></tr>
+</table><p/>
+
+<p><strong>What to submit:</strong> You will handin all of the python
+  files listed above under "Files you'll edit" as well as
+  a <tt>partners.txt</tt> file that lists the <b>names</b>
+  and <b>uids</b> (first four digits) of all members in your team.
+  Finally, you'll hand in a <tt>writeup.pdf</tt> file that answers all
+  the written questions in this assignment (denoted by <b>WU#:</b> in
+  this <tt>.html</tt> file).<p/>
+
+<p><strong>Evaluation:</strong> Your code will be autograded for
+technical correctness. Please <em>do not</em> change the names of any
+provided functions or classes within the code, or you will wreak havoc
+on the autograder. However, the correctness of your implementation --
+not the autograder's output -- will be the final judge of your score.
+If necessary, we will review and grade assignments individually to
+ensure that you receive due credit for your work.
+
+<p><strong>Academic Dishonesty:</strong> We will be checking your code
+against other submissions in the class for logical redundancy. If you
+copy someone else's code and submit it with minor changes, we will
+know. These cheat detectors are quite hard to fool, so please don't
+try. We trust you all to submit your own work only; <em>please</em>
+don't let us down. If you do, we will pursue the strongest
+consequences available to us.
+
+<p><strong>Getting Help:</strong> You are not alone!  If you find
+yourself stuck on something, contact the course staff for help.
+Office hours, class time, and the mailing list are there for your
+support; please use them.  If you can't make our office hours, let us
+know and we will schedule more.  We want these projects to be
+rewarding and instructional, not frustrating and demoralizing.  But,
+we don't know when or how to help unless you ask.  One more piece of
+advice: if you don't know what a variable is, print it out.
+
+<h3><a name="pca">PCA and Kernel PCA <i>[30%]</i></a></h3>
+
+Our first tasks are to implement PCA and kernel PCA.  If implemented
+correctly, these should be 5-line functions (plus the supporting code
+I've provided): just be sure to use numpy's eigenvalue computation
+code.  Implement PCA in the function <tt>pca</tt>
+in <tt>dr.py</tt>.<p/>
+
+Our first test of PCA will be on Gaussian data with a known covariance
+matrix.  First, let's generate some data and see how it looks, and see
+what the <i>sample covariance</i> is:<p/>
+
+<pre>
+>>> Si = util.sqrtm(array([[3,2],[2,4]]))
+>>> x = dot(randn(1000,2), Si)
+>>> plot(x[:,0], x[:,1], 'b.')
+>>> dot(x.T,x) / real(x.shape[0])
+array([[ 2.88360146,  2.05144774],
+       [ 2.05144774,  4.05987148]])
+</pre><p/>
+
+(Note: The reason we have to do a matrix square-root on the covariance
+is because Gaussians are transformed by standard deviations, not by
+covariances.)<p/>
+
+Note that the sample covariance of the data is almost exactly the true
+covariance of the data.  If you run this with 100,000 data points
+(instead of 1000), you should get something even closer to
+<tt>[[3,2],[2,4]]</tt>.<p/>
+
+Now, let's run PCA on this data.  We basically know what should
+happen, but let's make sure it happens anyway.<p/>
+
+<pre>
+>>> (P,Z,evals) = dr.pca(x, 2)
+>>> Z
+array([[ 0.57546631, -0.81782549],
+       [-0.81782549, -0.57546631]])
+>>> evals
+array([ 5.2620058 ,  1.25255969])
+</pre><p/>
+
+This tells us that the largest eigenvalue corresponds to the
+direction <tt>[0.57, -0.82]</tt> and the second largest corresponds to
+the direction <tt>[-0.82, -0.57]</tt>.  We can project the data onto
+the first eigenvalue and plot it in red, and the second eigenvalue in
+green.  (Unfortunately we have to do some ugly reshaping to get
+dimensions to match up.)<p/>
+
+<pre>
+>>> x0 = dot(dot(x, Z[0,:]).reshape(1000,1), Z[0,:].reshape(1,2))
+>>> x1 = dot(dot(x, Z[1,:]).reshape(1000,1), Z[1,:].reshape(1,2))
+>>> plot(x[:,0], x[:,1], 'b.', x0[:,0], x0[:,1], 'r.', x1[:,0], x1[:,1], 'g.')
+</pre><p/>
+
+<b>WU1:</b> Depending exactly on your random data, one or more of
+these lines might not pass exactly through the data as we would like
+it to.  Why not?<p/>
+
+Now, back to digits data.  Let's look at some "eigendigits."<p/>
+
+<pre>
+>>> (X,Y) = datasets.loadDigits()
+>>> (P,Z,evals) = dr.pca(X, 784)
+>>> evals
+array([ 0.05465988,  0.04320249,  0.03914405,  0.03072822, 0.02969435, .....
+</pre><p/>
+
+(Warning: this takes about a minute to compute for me.)  Eventually
+the eigenvalues drop to zero.<p/>
+
+<b>WU2:</b> Plot the normalized eigenvalues (include the plot in your
+writeup).  How many eigenvectors do you have to include before you've
+accounted for 90% of the variance?  95%?  (Hint: see
+function <tt>cumsum</tt>.)<p/>
+
+Now, let's plot the top 50 eigenvectors:<p/>
+
+<pre>
+>>> util.drawDigits(Z[1:50,:], arange(50))
+</pre>
+
+<b>WU3:</b> Do these look like digits?  Should they?  Why or why not?
+(Include the plot in your write-up.)<p/>
+
+Next, you need to implement Kernel PCA.  We can first try this on our
+simple 2d data with known covariance and a linear kernel:<p/>
+
+<pre>
+>>> Si = util.sqrtm(array([[3,2],[2,4]]))
+>>> x = dot(randn(1000,2), Si)
+>>> (P, alpha, evals) = dr.kpca(X, 2, kernel.linear)
+>>> evals
+array([  4.00434172e+08,   5.46598996e+01])
+>>> alpha
+array([[  3.16227743e-02,   8.31483667e-02,  -2.75562562e-02, ...,
+         -2.93759139e-03,  -2.93759139e-03,  -5.91730489e-03],
+       [  3.16227802e-02,   5.05064932e-03,   1.38360913e-02, ...,
+         -8.02854635e-05,  -8.02854635e-05,  -2.06104070e-04]])
+</pre><p/>
+
+Now, let's try with some data that vanilla PCA will find
+difficult:<p/>
+
+<pre>
+>>> (a,b) = datasets.makeKPCAdata()
+>>> plot(a[:,0], a[:,1], 'b.', b[:,0], b[:,1], 'r.')
+
+>>> x = vstack((a,b))
+>>> (P,Z,evals) = dr.pca(x, 2)
+>>> Z
+array([[ 0.87703838,  0.48042032],
+       [-0.48042032,  0.87703838]])
+>>> evals
+array([ 6.26494952,  5.72135994])
+</pre><p/>
+
+<b>WU4:</b> Why does vanilla PCA find this data difficult?  What is
+the significance of the relatively large value of the eigenvalues
+here?<p/>
+
+Now, let's look at the projected data:<p/>
+
+<pre>
+>>> Pa = P[0:a.shape[0],:]
+>>> Pb = P[a.shape:-1,:]
+>>> plot(Pa[:,0], randn(Pa.shape[0]), 'b.', Pb[:,0], randn(Pb.shape[0]), 'r.')
+</pre><p/>
+
+Here, we've added a bit of random noise to the Y-axis so that the
+points don't all lie on top of one another.<p/>
+
+<b>WU5:</b> Did PCA do what we might want it to?  Why or why not?
+Include the plot to justify your answer.<p/>
+
+Now, let's use some kernels.<p/>
+
+<pre>
+>>> (P,alpha,evals) = dr.kpca(x, 2, kernel.rbfGamma(1.0))
+>>> evals
+array([  3.55250103e+07,   7.28020391e+01])
+>>> Pa = P[0:a.shape[0],:]
+>>> Pb = P[a.shape[0]:-1,:]
+>>> plot(Pa[:,0], Pa[:,1], 'b.', Pb[:,0], Pb[:,1], 'r.')
+</pre><p/>
+
+<b>WU6:</b> How do the eigenvalues here compare to the linear case?
+What does this tell you?  How does the plot look?  How might this be
+useful for supervised learning?<p/>
+
+<b>WU7:</b> Experiment with different kernels, and perhaps
+interpolations of different kernels.  Try to find a kernel that gets
+as much of the variance on the first two principle components as
+possible.  Report your kernel and a plot of the data projected into 2d
+under that kernel.<p/>
+
+<h3><a name="kmeans">K-Means Clustering<i>[20%]</i></a></h3>
+
+Your second task is to implement the largest distance heuristic for
+kmeans clustering in <tt>clustering.py</tt>.
+
+We'll now quickly run through some basic experiments k-means:<p/>
+
+<pre>
+>>> mu0 = clustering.initialize_clusters(datasets.X2d, 2, 'determ')
+>>> (mu,z,obj) = clustering.kmeans(datasets.X2d, mu0)
+>>> mu
+array([[ 2.31287961,  1.51333813],
+       [-2.13455999, -2.15661017]])
+>>> z
+array([0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0,
+       1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1])
+>>> obj
+array([ 1.91484251,  1.91484251])
+</pre><p/>
+
+<b>Hint:</b> While running, this will plot the results.  If you want
+to turn that off, comment out the obvious line in the <tt>kmeans</tt>
+function.  Plus, when it says "Press enter to continue", if you type
+"q" and press enter, it will stop bugging you.<p/>
+
+You can also play with another example:<p/>
+
+<pre>
+>>> mu0 = clustering.initialize_clusters(datasets.X2d2, 4, 'determ')
+>>> (mu,z,obj) = clustering.kmeans(datasets.X2d2, mu0)
+Iteration 0, objective=5.84574
+Iteration 1, objective=4.3797
+Iteration 2, objective=3.06938
+Iteration 3, objective=2.45218
+Iteration 4, objective=2.34795
+Iteration 5, objective=2.34795
+>>> mu
+array([[ 3.06150611, -1.07977065],
+       [-3.92433223,  1.99052827],
+       [ 0.87252863,  4.63384851],
+       [-3.17087245, -4.10528255]])
+>>> z
+array([3, 1, 2, 3, 0, 1, 1, 2, 2, 0, 3, 0, 0, 0, 2, 3, 3, 3, 0, 0, 1, 0, 0,
+       0, 2, 2, 0, 0, 0, 1, 0, 3, 3, 2, 2, 2, 1, 1, 3, 0, 3, 0, 0, 3, 1, 3,
+       3, 2, 1, 0, 1, 1, 3, 2, 3, 3, 0, 0, 3, 2, 0, 3, 1, 3, 0, 3, 2, 3, 3,
+       3, 3, 3, 0, 1, 0, 3, 0, 0, 1, 2, 3, 2, 2, 3, 3, 1, 2, 0, 0, 2, 3, 0,
+       1, 3, 0, 2, 3, 3, 3, 3, 2, 2, 3, 1, 0, 3, 0, 0, 0, 0, 0, 1, 1, 2, 0,
+       1, 0, 2, 3, 1, 3, 0, 1, 1, 3, 0, 0, 1, 0, 3, 3, 1, 0, 0, 3, 0, 2, 2,
+       1, 0, 2, 3, 3, 3, 0, 3, 2, 3, 1, 1, 0, 2, 1, 3, 3, 0, 2, 0, 2, 0, 1,
+       2, 3, 1, 0, 3, 0, 3, 3, 2, 2, 0, 0, 0, 0, 0, 2, 0, 3, 0, 0, 2, 3, 0,
+       0, 0, 2, 3, 2, 0, 2, 0, 0, 3, 0, 2, 0, 1, 2, 3, 3, 0, 3, 3, 2, 3, 1,
+       0, 0, 0, 0, 3, 0, 0, 1, 0, 3, 0, 1, 2, 3, 2, 3, 3, 1, 3, 3, 3, 1, 3,
+       0, 3, 2, 0, 2, 3, 2, 3, 3, 1, 3, 3, 3, 3, 2, 3, 0, 2, 2, 0, 0, 2, 1,
+       2, 3, 1, 3, 1, 3, 1, 3, 0, 1, 3, 3, 0, 3, 0, 1, 3, 3, 1, 2, 3, 0, 2,
+       3, 0, 0, 3, 3, 1, 2, 3, 0, 3, 3, 1, 1, 1, 2, 0, 3, 0, 3, 1, 0, 3, 3,
+       0])
+>>> obj
+array([ 5.84574233,  4.37970445,  3.06937814,  2.45218374,  2.34795137,
+        2.34795137])
+</pre><p/>
+
+Once you've implemented the furthest first heuristic, you can do an
+ test by:<p/>
+
+<pre>
+>>> (X,Y) = datasets.loadDigits()
+>>> mu0 = clustering.initialize_clusters(X, 10, 'ffh')
+>>> (mu,z,obj) = clustering.kmeans(X, mu0, doPlot=False)
+>>> plot(obj)
+>>> show(block=False)
+>>> util.drawDigits(mu, arange(10))
+</pre><p/>
+
+(This takes a while to run for me: about 30 seconds total.)<p/>
+
+<b>WU8:</b> Run the above a 5 times.  How many iterations does it seem
+to take for kmeans to converge using ffh?  Do the resulting cluster
+means look like digits for most of these runs?  Pick the "best" run
+(i.e., the one with the lowest final objective) and plot the digits
+(include the plot in the writeup).  How many of the digits 0-9 are
+represented?  Which ones are missing?  Try both with ffh and with
+random initialization: how many iterations does it take for kmeans to
+converge (on average) for each setting?<p/>
+
+<b>WU9:</b> Repeat WU8, but for k=25.  Pick the best of 5 runs, and
+plot the digits.  Are you able to see all digits here?<p/>
+
+<h3><a name="classif">Classification with SVMs <i>[50%]</i></a></h3>
+
+As a warm up, complete lab 7 and include the answers to questions B, D
+and E as <b>WU10</b>.<p/>
+
+Now, go out and find some data that seems interesting in some way. You
+can either grab some data that wasn't meant to be used as a
+classiciation problem (like the wine data I downloaded for one of the
+earlier labs) or some data that is "obviously" a classification
+problem. If you want some pointers to places where you might find
+interesting data, look at: data.gov, healthdata.gov, or
+www.people-press.org/category/datasets or try to find something
+else. Be creative and find something you think would be cool. If you
+need help, talk to me or one of the TAs.<p/>
+
+Once you've defined your classification problem (you can do multiclass
+or binary: libSVM will do either), build a classifier using
+everything you've learned in class. In particular, split the data into
+train/dev/test and tune hyperparamters (C, kernel and kernel
+parameters) on the dev data, and report final results on the test
+data. You should at least experiment with linear and RBF kernels (of
+differing widths "gamma"), you may try others if you like. Can you
+think of any reason why whatever works best works best?<p/>
+
+<b>WU11</b>: write one page describing what you did for this section.
+
+
+
+</body>
+</html>
+
