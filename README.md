@@ -6,3 +6,5 @@ cmsc422-p2
 
 cmsc422-p3
 Algorithms for dimensionality reducation and clustering. (PCA and kernel PCA)
+
+Various intermediate labs also included.
